@@ -1,0 +1,26 @@
+:root {
+  --primary-color: #f97316;
+  --primary-hover: #ea580c;
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #374151;
+  --text-muted: #64748b;
+  --border-color: #cbd5e1;
+  --border-light: #e5e7eb;
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.1);
+  --font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-color);
+  font-family: var(--font-family);
+  color: var(--text-main);
+}
