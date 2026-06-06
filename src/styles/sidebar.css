@@ -1,60 +1,177 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   sidebar.css
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Sidebar shell ── */
 .sidebar {
-  width: 240px;
-
-  background: var(--card-bg);
-
-  margin-left: 20px;
-
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--card-bg, #fff);
+  margin: 0 0 16px 16px;       /* 16px left gutter, 16px bottom               */
   border-radius: 12px;
+  padding: 14px 10px 10px;
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.08));
 
-  padding: 12px;
-
-  box-shadow: var(--shadow-sm);
+  /* Make the sidebar a flex column so the user footer stays at the bottom    */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.sidebar h3 {
-  color: var(--primary-color);
-
-  margin-bottom: 12px;
-
-  font-size: 15px;
-
-  border-bottom: 1px solid var(--border-light);
-
-  padding-bottom: 8px;
+/* ── "Navigation" section label ── */
+.sidebar-nav-label {
+  color: var(--primary-color, #f97316);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 8px;
+  padding: 0 4px 8px;
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
 }
 
-.sidebar ul {
+/* ── Nav list ── */
+.sidebar-nav {
   list-style: none;
-
   padding: 0;
-
   margin: 0;
+  flex: 1;            /* expands to push the user footer to the bottom        */
+  overflow-y: auto;   /* scroll if many items on a short screen               */
 }
 
-.sidebar li {
-  margin-bottom: 2px;
+.sidebar-nav li {
+  margin-bottom: 1px;
 }
 
-.sidebar a {
+.sidebar-nav a {
   display: block;
-
   text-decoration: none;
-
-  color: var(--text-main);
-
-  padding: 10px 12px;
-
+  color: var(--text-main, #374151);
+  padding: 9px 10px;
   border-radius: 8px;
-
-  font-size: 14px;
-
+  font-size: 13.5px;
   font-weight: 500;
-
-  transition: 0.2s;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sidebar a:hover {
+.sidebar-nav a:hover {
   background: #fff7ed;
-  color: var(--primary-color);
+  color: var(--primary-color, #f97316);
+}
+
+/* active link — React Router adds .active class */
+.sidebar-nav a.active {
+  background: #ffedd5;
+  color: #ea580c;
+  font-weight: 600;
+}
+
+/* ── User profile footer ── */
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 8px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-light, #e5e7eb);
+  /* Prevents footer from shrinking below its natural height */
+  flex-shrink: 0;
+}
+
+/* Avatar circle with initials */
+.sidebar-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ea580c, #fb923c);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+  letter-spacing: 0.5px;
+}
+
+/* Name + role column */
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;         /* allow text-overflow to work                        */
+}
+
+.sidebar-user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-main, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.sidebar-user-role {
+  font-size: 10.5px;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* Logout icon button */
+.sidebar-logout-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #fff0ea;
+  border: 1px solid #fdba74;
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.sidebar-logout-btn:hover {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Responsive
+───────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    margin: 0 0 10px 0;
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  /* On mobile the sidebar is above the content, so no flex column needed */
+  .sidebar-nav {
+    overflow: visible;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .sidebar-nav li { margin-bottom: 0; }
+
+  .sidebar-nav a {
+    padding: 7px 12px;
+    font-size: 12.5px;
+  }
+
+  .sidebar-user-role { display: none; }
 }

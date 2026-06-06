@@ -1,955 +1,638 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabaseClient";
+import type { ReceiptConfig } from "../lib/supabaseClient";
+import { Search, Info, Printer, X } from "lucide-react";
 import { convertNumberToWords } from "../utils/numberToWords";
 import "../styles/receipts.css";
-import { 
-  Save, 
-  RotateCcw, 
-  X, 
-  AlertCircle, 
-  CheckCircle2, 
-  Info,
-  Calendar,
-  User,
-  FileText
-} from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface ReceiptData {
-  receiptNumber: number;
-  date: string;
-  rollNumber: string;
-  studentName: string;
-  yearOfStudying: string;
-  towards: string;
-  amountReceived: number;
-  amountReceivedWords: string;
-  modeOfPayment: string;
-  upiNumber?: string;
-  upiDate?: string;
-  paymentStatus: string;
-  totalAmount?: number;
-  paidAmount?: number;
-  pendingAmount?: number;
-  pendingReason?: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface TxLine {
+  fee_types: { fee_name: string } | null;
+  amount: number;
 }
 
-const DEFAULT_TRANSACTIONS: ReceiptData[] = [
-  {
-    receiptNumber: 1,
-    date: "2026-05-15",
-    rollNumber: "CSE001",
-    studentName: "Rahul Kumar",
-    yearOfStudying: "3rd Year",
-    towards: "Tuition Fee",
-    amountReceived: 45000,
-    amountReceivedWords: "Forty Five Thousand Rupees Only",
-    modeOfPayment: "UPI",
-    upiNumber: "987654321012",
-    upiDate: "2026-05-15",
-    paymentStatus: "Paid"
-  },
-  {
-    receiptNumber: 2,
-    date: "2026-06-01",
-    rollNumber: "CSE001",
-    studentName: "Rahul Kumar",
-    yearOfStudying: "3rd Year",
-    towards: "Hostel Fee",
-    amountReceived: 25000,
-    amountReceivedWords: "Twenty Five Thousand Rupees Only",
-    modeOfPayment: "Cash",
-    paymentStatus: "Partial Payment",
-    totalAmount: 30000,
-    paidAmount: 25000,
-    pendingAmount: 5000
-  },
-  {
-    receiptNumber: 3,
-    date: "2026-05-20",
-    rollNumber: "ECE002",
-    studentName: "Priya Sharma",
-    yearOfStudying: "2nd Year",
-    towards: "Exam Fee",
-    amountReceived: 1200,
-    amountReceivedWords: "One Thousand Two Hundred Rupees Only",
-    modeOfPayment: "Debit Card",
-    paymentStatus: "Paid"
-  },
-  {
-    receiptNumber: 4,
-    date: "2026-06-02",
-    rollNumber: "ECE002",
-    studentName: "Priya Sharma",
-    yearOfStudying: "2nd Year",
-    towards: "Library Fee",
-    amountReceived: 0,
-    amountReceivedWords: "Zero Rupees Only",
-    modeOfPayment: "Cash",
-    paymentStatus: "Pending",
-    totalAmount: 500,
-    pendingAmount: 500,
-    pendingReason: "Waiting for clearance of books"
-  },
-  {
-    receiptNumber: 5,
-    date: "2026-04-10",
-    rollNumber: "IT004",
-    studentName: "Sneha Reddy",
-    yearOfStudying: "4th Year",
-    towards: "Tuition Fee",
-    amountReceived: 60000,
-    amountReceivedWords: "Sixty Thousand Rupees Only",
-    modeOfPayment: "Net Banking",
-    paymentStatus: "Paid"
-  }
-];
+interface Receipt {
+  id: number;
+  receipt_number: string;
+  receipt_date: string;
+  total_amount: number;
+  payment_mode: string;
+  transaction_reference: string | null;
+  remarks: string | null;
+  students: {
+    roll_number: string;
+    student_name: string;
+    branches:       { branch_name: string; branch_code: string } | null;
+    courses:        { course_name: string } | null;
+    academic_years: { year_name: string }  | null;
+  } | null;
+  users: { full_name: string } | null;
+}
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmt   = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmtDt = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function Receipts() {
-  const navigate = useNavigate();
+  const [receipts,    setReceipts]    = useState<Receipt[]>([]);
+  const [query,       setQuery]       = useState("");
+  const [selected,    setSelected]    = useState<Receipt | null>(null);
+  const [txLines,     setTxLines]     = useState<TxLine[]>([]);
+  const [config,      setConfig]      = useState<ReceiptConfig | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const printRef = useRef<HTMLDivElement>(null);
 
-  // Helper to get today's date in YYYY-MM-DD local timezone format
-  const getTodayLocalDate = () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  // ─── State Variables ────────────────────────────────────────────────────────
-  const [receiptsList, setReceiptsList] = useState<ReceiptData[]>([]);
-  const [receiptNumber, setReceiptNumber] = useState<number>(1);
-  const [date, setDate] = useState<string>(getTodayLocalDate());
-  
-  // Student details
-  const [rollNumber, setRollNumber] = useState("");
-  const [studentName, setStudentName] = useState("");
-  const [yearOfStudying, setYearOfStudying] = useState("");
-
-  // Payment Details
-  const [towards, setTowards] = useState("");
-  const [amountReceived, setAmountReceived] = useState<string>("");
-  const [amountReceivedWords, setAmountReceivedWords] = useState("Zero Rupees Only");
-  const [modeOfPayment, setModeOfPayment] = useState("");
-  const [upiNumber, setUpiNumber] = useState("");
-  const [upiDate, setUpiDate] = useState(getTodayLocalDate());
-  const [paymentStatus, setPaymentStatus] = useState("Paid");
-
-  // Conditional Status Fields
-  const [totalAmount, setTotalAmount] = useState<string>("");
-  const [paidAmount, setPaidAmount] = useState<string>("");
-  const [pendingAmount, setPendingAmount] = useState<number>(0);
-  const [pendingReason, setPendingReason] = useState("");
-
-  // Notification and Modals
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-
-  // ─── Effects ────────────────────────────────────────────────────────────────
-  // Load existing receipts and compute next sequential receipt number
+  // ── Data load ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("receipts_list");
-      if (stored) {
-        const parsed: ReceiptData[] = JSON.parse(stored);
-        setReceiptsList(parsed);
-        // Sequential numbering based on list length
-        setReceiptNumber(parsed.length + 1);
-      } else {
-        localStorage.setItem("receipts_list", JSON.stringify(DEFAULT_TRANSACTIONS));
-        setReceiptsList(DEFAULT_TRANSACTIONS);
-        setReceiptNumber(DEFAULT_TRANSACTIONS.length + 1);
-      }
-    } catch (e) {
-      console.error("Failed to load receipts from localStorage", e);
-      setReceiptNumber(1);
-    }
+    fetchReceipts();
+    fetchConfig();
   }, []);
 
-  // Update Amount in Words automatically when Amount Received changes
-  useEffect(() => {
-    const numericAmount = parseFloat(amountReceived);
-    if (!isNaN(numericAmount) && numericAmount >= 0) {
-      setAmountReceivedWords(convertNumberToWords(numericAmount));
-    } else {
-      setAmountReceivedWords("Zero Rupees Only");
-    }
-  }, [amountReceived]);
+  const fetchReceipts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("receipts")
+      .select(`
+        id, receipt_number, receipt_date, total_amount,
+        payment_mode, transaction_reference, remarks,
+        students (
+          roll_number, student_name,
+          branches       ( branch_name, branch_code ),
+          courses        ( course_name ),
+          academic_years ( year_name )
+        ),
+        users:collected_by ( full_name )
+      `)
+      .order("receipt_date", { ascending: false });
 
-  // Adjust conditional fields based on payment status selection
-  useEffect(() => {
-    if (paymentStatus === "Paid") {
-      setTotalAmount("");
-      setPaidAmount("");
-      setPendingAmount(0);
-      setPendingReason("");
-    } else if (paymentStatus === "Pending") {
-      // For pending, Amount Received is forced to 0
-      setAmountReceived("0");
-      setPaidAmount("0");
-      setPendingReason("");
-    } else if (paymentStatus === "Partial Payment") {
-      // For partial, Paid Amount is bound/synchronized to Amount Received
-      setPaidAmount(amountReceived);
-    }
-  }, [paymentStatus]);
-
-  // Keep paidAmount in sync with amountReceived for Partial Payment
-  useEffect(() => {
-    if (paymentStatus === "Partial Payment") {
-      setPaidAmount(amountReceived);
-    }
-  }, [amountReceived, paymentStatus]);
-
-  // Auto-calculate pendingAmount for Partial Payment or Pending
-  useEffect(() => {
-    if (paymentStatus === "Partial Payment") {
-      const tot = parseFloat(totalAmount) || 0;
-      const paid = parseFloat(paidAmount) || 0;
-      const calcPending = Math.max(0, tot - paid);
-      setPendingAmount(calcPending);
-    } else if (paymentStatus === "Pending") {
-      const tot = parseFloat(totalAmount) || 0;
-      setPendingAmount(tot);
-    }
-  }, [totalAmount, paidAmount, paymentStatus]);
-
-  // Clear UPI number if mode changes away from UPI
-  useEffect(() => {
-    if (modeOfPayment !== "UPI") {
-      setUpiNumber("");
-    }
-  }, [modeOfPayment]);
-
-  // ─── Actions ────────────────────────────────────────────────────────────────
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    // Roll Number *
-    if (!rollNumber.trim()) {
-      newErrors.rollNumber = "Roll Number is required.";
-    }
-
-    // Student Name *
-    if (!studentName.trim()) {
-      newErrors.studentName = "Student Name is required.";
-    }
-
-    // Year of Studying *
-    if (!yearOfStudying) {
-      newErrors.yearOfStudying = "Year of Studying is required.";
-    }
-
-    // Towards *
-    if (!towards.trim()) {
-      newErrors.towards = "Towards field is required.";
-    }
-
-    // Amount Received *
-    if (amountReceived === "") {
-      newErrors.amountReceived = "Amount Received is required.";
-    } else {
-      const amt = parseFloat(amountReceived);
-      if (isNaN(amt)) {
-        newErrors.amountReceived = "Amount must be a number.";
-      } else if (amt < 0) {
-        newErrors.amountReceived = "Amount cannot be negative.";
-      }
-    }
-
-    // Mode of Payment *
-    if (!modeOfPayment) {
-      newErrors.modeOfPayment = "Mode of Payment is required.";
-    }
-
-    // UPI Validation
-    if (modeOfPayment === "UPI") {
-      if (!upiNumber.trim()) {
-        newErrors.upiNumber = "UPI transaction number is required when payment mode is UPI.";
-      }
-      if (!upiDate) {
-        newErrors.upiDate = "UPI date is required when payment mode is UPI.";
-      }
-    }
-
-    // Payment Status Validation (Total/Paid/Pending verification)
-    if (paymentStatus === "Pending") {
-      if (!totalAmount) {
-        newErrors.totalAmount = "Total Amount is required for pending status.";
-      } else {
-        const tot = parseFloat(totalAmount);
-        if (isNaN(tot) || tot < 0) {
-          newErrors.totalAmount = "Total Amount must be a positive number.";
-        }
-      }
-    } else if (paymentStatus === "Partial Payment") {
-      const tot = parseFloat(totalAmount);
-      const paid = parseFloat(amountReceived); // Paid Amount is bound to amountReceived
-
-      if (!totalAmount) {
-        newErrors.totalAmount = "Total Amount is required.";
-      } else if (isNaN(tot) || tot < 0) {
-        newErrors.totalAmount = "Total Amount must be a positive number.";
-      }
-
-      if (!isNaN(tot) && !isNaN(paid) && paid > tot) {
-        newErrors.amountReceived = "Paid Amount (Amount Received) cannot exceed Total Amount.";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (!error && data) setReceipts(data as unknown as Receipt[]);
+    setLoading(false);
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchConfig = async () => {
+    const { data } = await supabase.from("receipt_config").select("*").limit(1).single();
+    if (data) setConfig(data as ReceiptConfig);
+  };
 
-    if (!validateForm()) {
-      // Scroll to the top error banner
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+  const fetchTxLines = async (receiptId: number) => {
+    const { data } = await supabase
+      .from("transactions")
+      .select("amount, fee_types ( fee_name )")
+      .eq("receipt_id", receiptId);
+    if (data) setTxLines(data as unknown as TxLine[]);
+  };
 
-    // Create the receipt data object
-    const newReceipt: ReceiptData = {
-      receiptNumber,
-      date,
-      rollNumber: rollNumber.trim(),
-      studentName: studentName.trim(),
-      yearOfStudying,
-      towards: towards.trim(),
-      amountReceived: parseFloat(amountReceived),
-      amountReceivedWords,
-      modeOfPayment,
-      paymentStatus,
+  const handleSelect = (r: Receipt) => {
+    setSelected(r);
+    fetchTxLines(r.id);
+  };
+
+  // ── Print: inject only receipt HTML into an iframe ────────────────────────
+  const handlePrint = () => {
+    if (!printRef.current) return;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument!;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Receipt - ${selected?.receipt_number}</title>
+<style>
+  /* ── Reset ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11pt;
+    color: #000;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Page ── */
+  .rp {
+    width: 190mm;
+    margin: 10mm auto;
+    padding: 0;
+  }
+
+  /* ── Outer border ── */
+  .rp-border {
+    border: 2px solid #000;
+    padding: 8mm 10mm 6mm;
+  }
+
+  /* ── College header ── */
+  .rp-college-name {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1.3;
+  }
+  .rp-college-sub {
+    text-align: center;
+    font-size: 9pt;
+    color: #333;
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+  .rp-divider {
+    border: none;
+    border-top: 2px solid #000;
+    margin: 5mm 0 4mm;
+  }
+  .rp-divider-thin {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 3mm 0;
+  }
+
+  /* ── Title row ── */
+  .rp-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4mm;
+  }
+  .rp-title {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-decoration: underline;
+  }
+  .rp-receipt-no {
+    font-size: 10pt;
+    text-align: right;
+  }
+  .rp-receipt-no strong { font-size: 11pt; }
+
+  /* ── Info grid ── */
+  .rp-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    margin-bottom: 4mm;
+  }
+  .rp-info-table td {
+    padding: 2px 0;
+    vertical-align: top;
+  }
+  .rp-info-table .lbl {
+    width: 38mm;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .rp-info-table .sep { width: 5mm; text-align: center; }
+  .rp-info-table .val { }
+
+  /* ── Fee table ── */
+  .rp-fee-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    margin-bottom: 3mm;
+  }
+  .rp-fee-table th {
+    background: #000;
+    color: #fff;
+    padding: 4px 8px;
+    text-align: left;
+    font-weight: bold;
+  }
+  .rp-fee-table th:last-child { text-align: right; }
+  .rp-fee-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+  }
+  .rp-fee-table td:last-child { text-align: right; }
+  .rp-fee-table tr:nth-child(even) td { background: #f7f7f7; }
+  .rp-fee-table .rp-total-row td {
+    border-top: 2px solid #000;
+    border-bottom: none;
+    font-weight: bold;
+    font-size: 11pt;
+    background: #e8e8e8;
+    padding: 5px 8px;
+  }
+
+  /* ── Amount in words ── */
+  .rp-words {
+    font-size: 9.5pt;
+    margin: 2mm 0 4mm;
+    padding: 3px 8px;
+    border: 1px dashed #777;
+    border-radius: 3px;
+    background: #fafafa;
+  }
+  .rp-words span { font-weight: bold; }
+
+  /* ── Payment mode badge ── */
+  .rp-pay-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10pt;
+    margin-bottom: 3mm;
+  }
+  .rp-pay-badge {
+    background: #000;
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-size: 9pt;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Footer ── */
+  .rp-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 10mm;
+  }
+  .rp-footer-left { font-size: 9pt; color: #555; line-height: 1.6; }
+  .rp-footer-right { text-align: center; }
+  .rp-sig-line {
+    border-top: 1px solid #000;
+    width: 55mm;
+    padding-top: 3px;
+    font-size: 9pt;
+    font-weight: bold;
+  }
+  .rp-sig-desig { font-size: 8.5pt; color: #333; }
+
+  /* ── Stamp area ── */
+  .rp-stamp {
+    width: 30mm;
+    height: 30mm;
+    border: 1px dashed #aaa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8pt;
+    color: #aaa;
+    margin-bottom: 4mm;
+  }
+
+  /* ── Watermark ── */
+  .rp-watermark {
+    position: relative;
+  }
+  .rp-watermark::after {
+    content: 'ORIGINAL';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 48pt;
+    font-weight: bold;
+    color: rgba(0,0,0,0.04);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  @page { size: A4; margin: 12mm; }
+</style>
+</head>
+<body>
+${printRef.current.innerHTML}
+</body>
+</html>`);
+    doc.close();
+
+    iframe.onload = () => {
+      iframe.contentWindow!.focus();
+      iframe.contentWindow!.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
     };
-
-    if (modeOfPayment === "UPI") {
-      newReceipt.upiNumber = upiNumber.trim();
-      newReceipt.upiDate = upiDate;
-    }
-
-    if (paymentStatus === "Pending") {
-      newReceipt.totalAmount = parseFloat(totalAmount);
-      newReceipt.pendingAmount = pendingAmount;
-      if (pendingReason.trim()) {
-        newReceipt.pendingReason = pendingReason.trim();
-      }
-    } else if (paymentStatus === "Partial Payment") {
-      newReceipt.totalAmount = parseFloat(totalAmount);
-      newReceipt.paidAmount = parseFloat(paidAmount);
-      newReceipt.pendingAmount = pendingAmount;
-    }
-
-    // Save to list and localStorage
-    const updatedList = [...receiptsList, newReceipt];
-    setReceiptsList(updatedList);
-    localStorage.setItem("receipts_list", JSON.stringify(updatedList));
-
-    // ─── Save the details in another file (Client-side trigger) ───
-    try {
-      const jsonStr = JSON.stringify(newReceipt, null, 2);
-      const blob = new Blob([jsonStr], { type: "application/json" });
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = `receipt_record_#${receiptNumber}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
-      console.error("Failed to download file", err);
-    }
-
-    // Show beautiful success notification
-    setSuccessToast(`Receipt #${receiptNumber} saved and downloaded successfully for ${studentName}!`);
-
-    // Reset Form for next entry but increment receipt number
-    const nextReceiptNumber = receiptNumber + 1;
-    handleResetFields();
-    setReceiptNumber(nextReceiptNumber);
-
-    // Clear toast automatically after 4 seconds
-    setTimeout(() => {
-      setSuccessToast(null);
-    }, 4000);
-
-    // Scroll to top to see success banner
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleResetFields = () => {
-    setRollNumber("");
-    setStudentName("");
-    setYearOfStudying("");
-    setTowards("");
-    setAmountReceived("");
-    setAmountReceivedWords("Zero Rupees Only");
-    setModeOfPayment("");
-    setUpiNumber("");
-    setUpiDate(getTodayLocalDate());
-    setPaymentStatus("Paid");
-    setTotalAmount("");
-    setPaidAmount("");
-    setPendingAmount(0);
-    setPendingReason("");
-    setErrors({});
-  };
+  // ── Filtered receipts ──────────────────────────────────────────────────────
+  const filtered = receipts.filter((r) => {
+    const q = query.toLowerCase();
+    return (
+      r.receipt_number.toLowerCase().includes(q) ||
+      (r.students?.student_name ?? "").toLowerCase().includes(q) ||
+      (r.students?.roll_number ?? "").toLowerCase().includes(q)
+    );
+  });
 
-  const handleResetClick = () => {
-    handleResetFields();
-    // Re-verify the receipt number matching localStorage length
-    setReceiptNumber(receiptsList.length + 1);
-  };
-
-  const handleCancel = () => {
-    // Show a modal asking if they want to discard changes
-    setShowCancelModal(true);
-  };
-
-  const confirmCancel = () => {
-    setShowCancelModal(false);
-    handleResetFields();
-    navigate("/dashboard");
-  };
-
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="receipt-page">
-      {/* Page Header */}
-      <div className="receipt-header-section">
-        <h2>Receipt Entry Form</h2>
-        <p>Record student fees and general payments for college accounts administration</p>
+    <div className="rcp-page">
+
+      {/* ── Page header ── */}
+      <div className="rcp-page-header">
+        <h2>Receipts</h2>
+        <p>Search, view and reprint fee receipts</p>
       </div>
 
-      {/* Success Notification Banner */}
-      {successToast && (
-        <div className="receipt-alert receipt-alert-success">
-          <CheckCircle2 size={20} />
-          <span>{successToast}</span>
-        </div>
-      )}
-
-      {/* Error Header Banner */}
-      {Object.keys(errors).length > 0 && (
-        <div className="receipt-alert receipt-alert-error">
-          <AlertCircle size={20} />
-          <div>
-            <strong>Please fix the following validation errors:</strong>
-            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-              {Object.values(errors).map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSave} className="receipt-form" noValidate>
-        
-        {/* SECTION 1: Receipt Details */}
-        <div className="receipt-card">
-          <div className="receipt-card-title">
-            <FileText size={18} color="#ee5e1a" />
-            <span>Receipt Details</span>
-          </div>
-          <div className="grid-2-col">
-            <div className="form-group">
-              <label className="form-label">Receipt Number (Auto-generated)</label>
-              <div className="input-icon-wrapper">
-                <span className="input-icon-prefix" style={{ fontSize: "14px", fontWeight: "bold" }}>#</span>
-                <input 
-                  type="text" 
-                  value={receiptNumber} 
-                  className="form-input form-input-with-icon" 
-                  readOnly 
-                  disabled
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="receipt-date">Date <span className="required-star">*</span></label>
-              <div className="input-icon-wrapper">
-                <Calendar size={16} className="input-icon-prefix" />
-                <input 
-                  id="receipt-date"
-                  type="date" 
-                  value={date} 
-                  onChange={(e) => setDate(e.target.value)}
-                  className="form-input form-input-with-icon"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 2: Student Details */}
-        <div className="receipt-card">
-          <div className="receipt-card-title">
-            <User size={18} color="#ee5e1a" />
-            <span>Student Details</span>
-          </div>
-
-          <div className="grid-3-col">
-            <div className={`form-group ${errors.rollNumber ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="student-roll">Roll Number <span className="required-star">*</span></label>
-              <input 
-                id="student-roll"
-                type="text" 
-                value={rollNumber} 
-                onChange={(e) => {
-                  setRollNumber(e.target.value);
-                  if (errors.rollNumber) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.rollNumber;
-                      return copy;
-                    });
-                  }
-                }}
-                placeholder="Enter Roll Number"
-                className="form-input"
-                required
-              />
-              {errors.rollNumber && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.rollNumber}</span>
-              )}
-            </div>
-
-            <div className={`form-group ${errors.studentName ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="student-name">Student Name <span className="required-star">*</span></label>
-              <input 
-                id="student-name"
-                type="text" 
-                value={studentName} 
-                onChange={(e) => {
-                  setStudentName(e.target.value);
-                  if (errors.studentName) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.studentName;
-                      return copy;
-                    });
-                  }
-                }}
-                placeholder="Enter Student Name"
-                className="form-input"
-                required
-              />
-              {errors.studentName && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.studentName}</span>
-              )}
-            </div>
-
-            <div className={`form-group ${errors.yearOfStudying ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="student-year">Year of Studying <span className="required-star">*</span></label>
-              <select 
-                id="student-year"
-                value={yearOfStudying} 
-                onChange={(e) => {
-                  setYearOfStudying(e.target.value);
-                  if (errors.yearOfStudying) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.yearOfStudying;
-                      return copy;
-                    });
-                  }
-                }}
-                className="form-select"
-                required
-              >
-                <option value="">Select Year</option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-              </select>
-              {errors.yearOfStudying && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.yearOfStudying}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 3: Payment Information */}
-        <div className="receipt-card">
-          <div className="receipt-card-title">
-            <span>Payment Information</span>
-          </div>
-
-          <div className="grid-3-col">
-            <div className={`form-group ${errors.amountReceived ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="payment-amount">Amount Received (Numbers) <span className="required-star">*</span></label>
-              <div className="input-icon-wrapper">
-                <span className="input-icon-prefix">₹</span>
-                <input 
-                  id="payment-amount"
-                  type="number" 
-                  min="0"
-                  placeholder="0.00"
-                  value={amountReceived}
-                  onChange={(e) => {
-                    setAmountReceived(e.target.value);
-                    if (errors.amountReceived) {
-                      setErrors(prev => {
-                        const copy = { ...prev };
-                        delete copy.amountReceived;
-                        return copy;
-                      });
-                    }
-                  }}
-                  className="form-input form-input-with-icon"
-                  disabled={paymentStatus === "Pending"}
-                  required
-                />
-              </div>
-              {errors.amountReceived && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.amountReceived}</span>
-              )}
-            </div>
-
-            <div className={`form-group ${errors.modeOfPayment ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="payment-mode">Mode of Payment <span className="required-star">*</span></label>
-              <select 
-                id="payment-mode"
-                value={modeOfPayment} 
-                onChange={(e) => {
-                  setModeOfPayment(e.target.value);
-                  if (errors.modeOfPayment) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.modeOfPayment;
-                      return copy;
-                    });
-                  }
-                }}
-                className="form-select"
-                required
-              >
-                <option value="">Select Mode</option>
-                <option value="Cash">Cash</option>
-                <option value="UPI">UPI</option>
-                <option value="Credit Card">Credit Card</option>
-                <option value="Debit Card">Debit Card</option>
-                <option value="Net Banking">Net Banking</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-              {errors.modeOfPayment && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.modeOfPayment}</span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="payment-status">Payment Status</label>
-              <select 
-                id="payment-status"
-                value={paymentStatus} 
-                onChange={(e) => setPaymentStatus(e.target.value)}
-                className="form-select"
-              >
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
-                <option value="Partial Payment">Partial Payment</option>
-              </select>
-            </div>
-
-            {/* Towards Input Field */}
-            <div className={`form-group ${errors.towards ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="payment-towards">Towards <span className="required-star">*</span></label>
-              <input 
-                id="payment-towards"
-                type="text" 
-                placeholder="E.g., Tuition Fee, Hostel Fee"
-                value={towards} 
-                onChange={(e) => {
-                  setTowards(e.target.value);
-                  if (errors.towards) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.towards;
-                      return copy;
-                    });
-                  }
-                }}
-                className="form-input"
-                required
-              />
-              {errors.towards && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.towards}</span>
-              )}
-            </div>
-
-            {/* UPI Number Input Field (Always visible, enabled only if mode is UPI) */}
-            <div className={`form-group ${errors.upiNumber ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="payment-upi-no">
-                UPI Number {modeOfPayment === "UPI" && <span className="required-star">*</span>}
-              </label>
-              <input 
-                id="payment-upi-no"
-                type="text" 
-                placeholder={modeOfPayment === "UPI" ? "Enter 12-digit transaction ID" : "Enabled for UPI payment mode only"}
-                value={upiNumber} 
-                onChange={(e) => {
-                  setUpiNumber(e.target.value);
-                  if (errors.upiNumber) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.upiNumber;
-                      return copy;
-                    });
-                  }
-                }}
-                className="form-input"
-                disabled={modeOfPayment !== "UPI"}
-                required={modeOfPayment === "UPI"}
-              />
-              {errors.upiNumber && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.upiNumber}</span>
-              )}
-            </div>
-
-            {/* UPI Date Input Field (Always visible, enabled only if mode is UPI) */}
-            <div className={`form-group ${errors.upiDate ? "has-error" : ""}`}>
-              <label className="form-label" htmlFor="payment-upi-date">
-                UPI Date {modeOfPayment === "UPI" && <span className="required-star">*</span>}
-              </label>
-              <input 
-                id="payment-upi-date"
-                type="date" 
-                value={upiDate} 
-                onChange={(e) => {
-                  setUpiDate(e.target.value);
-                  if (errors.upiDate) {
-                    setErrors(prev => {
-                      const copy = { ...prev };
-                      delete copy.upiDate;
-                      return copy;
-                    });
-                  }
-                }}
-                className="form-input"
-                disabled={modeOfPayment !== "UPI"}
-                required={modeOfPayment === "UPI"}
-              />
-              {errors.upiDate && (
-                <span className="field-error-msg"><AlertCircle size={12} /> {errors.upiDate}</span>
-              )}
-            </div>
-
-            <div className="form-group full-width">
-              <label className="form-label">Amount Received (Words)</label>
-              <input 
-                type="text" 
-                value={amountReceivedWords} 
-                className="form-input" 
-                style={{ fontStyle: "italic", fontWeight: 500, backgroundColor: "#f8fafc" }}
-                readOnly 
-                disabled
-              />
-            </div>
-          </div>
-
-          {/* Conditional Sub-section: Payment Status Detail Fields */}
-          {paymentStatus === "Pending" && (
-            <div className="conditional-section" style={{ marginTop: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#b45309", fontSize: "14px", fontWeight: 600 }}>
-                <Info size={16} />
-                <span>Pending Payment Registration</span>
-              </div>
-              <div className="conditional-grid">
-                <div className={`form-group ${errors.totalAmount ? "has-error" : ""}`}>
-                  <label className="form-label" htmlFor="pending-total">Total Amount <span className="required-star">*</span></label>
-                  <div className="input-icon-wrapper">
-                    <span className="input-icon-prefix">₹</span>
-                    <input 
-                      id="pending-total"
-                      type="number" 
-                      min="0"
-                      placeholder="0.00"
-                      value={totalAmount} 
-                      onChange={(e) => {
-                        setTotalAmount(e.target.value);
-                        if (errors.totalAmount) {
-                          setErrors(prev => {
-                            const copy = { ...prev };
-                            delete copy.totalAmount;
-                            return copy;
-                          });
-                        }
-                      }}
-                      className="form-input form-input-with-icon"
-                      required
-                    />
-                  </div>
-                  {errors.totalAmount && (
-                    <span className="field-error-msg"><AlertCircle size={12} /> {errors.totalAmount}</span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Pending Amount</label>
-                  <div className="input-icon-wrapper">
-                    <span className="input-icon-prefix">₹</span>
-                    <input 
-                      type="number" 
-                      value={pendingAmount} 
-                      className="form-input form-input-with-icon" 
-                      readOnly 
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="pending-reason">Pending Reason (Optional)</label>
-                  <input 
-                    id="pending-reason"
-                    type="text" 
-                    placeholder="E.g., Waiting for bank loan approval"
-                    value={pendingReason} 
-                    onChange={(e) => setPendingReason(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {paymentStatus === "Partial Payment" && (
-            <div className="conditional-section" style={{ marginTop: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#b45309", fontSize: "14px", fontWeight: 600 }}>
-                <Info size={16} />
-                <span>Partial Payment Calculations</span>
-              </div>
-              <div className="grid-2-col">
-                <div className={`form-group ${errors.totalAmount ? "has-error" : ""}`}>
-                  <label className="form-label" htmlFor="partial-total">Total Amount <span className="required-star">*</span></label>
-                  <div className="input-icon-wrapper">
-                    <span className="input-icon-prefix">₹</span>
-                    <input 
-                      id="partial-total"
-                      type="number" 
-                      min="0"
-                      placeholder="0.00"
-                      value={totalAmount} 
-                      onChange={(e) => {
-                        setTotalAmount(e.target.value);
-                        if (errors.totalAmount) {
-                          setErrors(prev => {
-                            const copy = { ...prev };
-                            delete copy.totalAmount;
-                            return copy;
-                          });
-                        }
-                      }}
-                      className="form-input form-input-with-icon"
-                      required
-                    />
-                  </div>
-                  {errors.totalAmount && (
-                    <span className="field-error-msg"><AlertCircle size={12} /> {errors.totalAmount}</span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Paid Amount (Equals Amount Received)</label>
-                  <div className="input-icon-wrapper">
-                    <span className="input-icon-prefix">₹</span>
-                    <input 
-                      type="number" 
-                      value={paidAmount || "0"} 
-                      className="form-input form-input-with-icon" 
-                      readOnly 
-                      disabled
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Summary Card */}
-              <div className="payment-summary-card">
-                <div className="summary-item">
-                  <div className="summary-item-label">Total Amount</div>
-                  <div className="summary-item-value">₹{(parseFloat(totalAmount) || 0).toLocaleString("en-IN")}</div>
-                </div>
-                <div className="summary-item" style={{ borderLeft: "1px solid #fed7aa", borderRight: "1px solid #fed7aa" }}>
-                  <div className="summary-item-label">Paid Amount</div>
-                  <div className="summary-item-value highlight-paid">₹{(parseFloat(paidAmount) || 0).toLocaleString("en-IN")}</div>
-                </div>
-                <div className="summary-item">
-                  <div className="summary-item-label">Pending Amount</div>
-                  <div className="summary-item-value highlight-pending">₹{pendingAmount.toLocaleString("en-IN")}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* STICKY ACTION BAR */}
-        <div className="sticky-action-bar">
-          <button 
-            type="button" 
-            onClick={handleCancel} 
-            className="receipt-btn receipt-btn-danger"
-          >
+      {/* ── Search bar ── */}
+      <div className="rcp-search-bar">
+        <Search size={18} className="rcp-search-icon" />
+        <input
+          type="text"
+          className="rcp-search-input"
+          placeholder="Search by receipt number, student name or roll number…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button className="rcp-search-clear" onClick={() => setQuery("")}>
             <X size={16} />
-            <span>Cancel</span>
           </button>
-          
-          <button 
-            type="button" 
-            onClick={handleResetClick} 
-            className="receipt-btn receipt-btn-secondary"
-          >
-            <RotateCcw size={16} />
-            <span>Reset</span>
-          </button>
-          
-          <button 
-            type="submit" 
-            className="receipt-btn receipt-btn-primary"
-          >
-            <Save size={16} />
-            <span>Save Receipt</span>
-          </button>
-        </div>
-      </form>
+        )}
+      </div>
 
-      {/* DISCARD CHANGES / CANCEL MODAL */}
-      {showCancelModal && (
-        <div className="receipt-modal-overlay">
-          <div className="receipt-modal">
-            <div className="receipt-modal-body">
-              <div className="receipt-modal-title">
-                <AlertCircle size={20} color="var(--receipt-error)" />
-                <span>Discard changes?</span>
-              </div>
-              <div className="receipt-modal-text">
-                Are you sure you want to cancel? Any unsaved information entered in this receipt form will be lost.
-              </div>
-              <div className="receipt-modal-actions">
-                <button 
-                  type="button" 
-                  onClick={() => setShowCancelModal(false)} 
-                  className="receipt-btn receipt-btn-secondary"
-                >
-                  Keep Editing
-                </button>
-                <button 
-                  type="button" 
-                  onClick={confirmCancel} 
-                  className="receipt-btn receipt-btn-primary" 
-                  style={{ backgroundColor: "var(--receipt-error)" }}
-                >
-                  Discard
-                </button>
-              </div>
+      {/* ── Two-pane layout ── */}
+      <div className="rcp-layout">
+
+        {/* Left: receipt list */}
+        <div className="rcp-list-pane">
+          {loading ? (
+            <div className="rcp-empty"><div className="rcp-spinner" /><p>Loading receipts…</p></div>
+          ) : filtered.length === 0 ? (
+            <div className="rcp-empty"><p>No receipts found{query ? ` for "${query}"` : ""}.</p></div>
+          ) : (
+            <table className="rcp-table">
+              <thead>
+                <tr>
+                  <th>Receipt No</th>
+                  <th>Date</th>
+                  <th>Student</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={selected?.id === r.id ? "rcp-row-active" : ""}
+                    onClick={() => handleSelect(r)}
+                  >
+                    <td className="rcp-rcpt-no">{r.receipt_number}</td>
+                    <td className="rcp-date">{fmtDt(r.receipt_date)}</td>
+                    <td>
+                      <div className="rcp-student-name">{r.students?.student_name}</div>
+                      <div className="rcp-student-roll">{r.students?.roll_number}</div>
+                    </td>
+                    <td className="rcp-amount">{fmt(r.total_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Right: detail + print preview */}
+        <div className="rcp-detail-pane">
+          {!selected ? (
+            <div className="rcp-empty rcp-empty-detail">
+              <Info size={40} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <p>Select a receipt from the list to view details</p>
             </div>
+          ) : (
+            <>
+              {/* Detail header */}
+              <div className="rcp-detail-header">
+                <div>
+                  <div className="rcp-detail-title">Receipt Details</div>
+                  <div className="rcp-detail-sub">{selected.receipt_number}</div>
+                </div>
+                <button className="rcp-print-btn" onClick={handlePrint}>
+                  <Printer size={16} /> Print Receipt
+                </button>
+              </div>
+
+              {/* Quick summary grid */}
+              <div className="rcp-summary-grid">
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Receipt No</span>
+                  <span className="rcp-val rcp-val-accent">{selected.receipt_number}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Date</span>
+                  <span className="rcp-val">{fmtDt(selected.receipt_date)}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Student</span>
+                  <span className="rcp-val">{selected.students?.student_name}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Roll Number</span>
+                  <span className="rcp-val">{selected.students?.roll_number}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Branch</span>
+                  <span className="rcp-val">{selected.students?.branches?.branch_name ?? "—"}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Academic Year</span>
+                  <span className="rcp-val">{selected.students?.academic_years?.year_name ?? "—"}</span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Payment Mode</span>
+                  <span className="rcp-val">
+                    <span className="rcp-mode-badge">{selected.payment_mode}</span>
+                  </span>
+                </div>
+                <div className="rcp-summary-cell">
+                  <span className="rcp-lbl">Collected By</span>
+                  <span className="rcp-val">{selected.users?.full_name ?? "—"}</span>
+                </div>
+                {selected.transaction_reference && (
+                  <div className="rcp-summary-cell" style={{ gridColumn: "1 / -1" }}>
+                    <span className="rcp-lbl">Ref / UPI / Cheque No</span>
+                    <span className="rcp-val">{selected.transaction_reference}</span>
+                  </div>
+                )}
+                {selected.remarks && (
+                  <div className="rcp-summary-cell" style={{ gridColumn: "1 / -1" }}>
+                    <span className="rcp-lbl">Remarks</span>
+                    <span className="rcp-val">{selected.remarks}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Fee breakdown */}
+              <div className="rcp-breakdown-title">Fee Breakdown</div>
+              <table className="rcp-breakdown-table">
+                <thead>
+                  <tr>
+                    <th>Fee Type</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {txLines.map((t, i) => (
+                    <tr key={i}>
+                      <td>{t.fee_types?.fee_name}</td>
+                      <td style={{ textAlign: "right" }}>{fmt(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="rcp-total-row">
+                    <td>Total Paid</td>
+                    <td style={{ textAlign: "right" }}>{fmt(selected.total_amount)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════
+          Hidden print-only receipt  (rendered in iframe)
+          This div is NEVER visible on screen.
+      ══════════════════════════════════════════════════════ */}
+      {selected && (
+        <div style={{ display: "none" }}>
+          <div ref={printRef}>
+            <div className="rp rp-watermark">
+              <div className="rp-border">
+
+                {/* ── College header ── */}
+                <div className="rp-college-name">
+                  {config?.college_name ?? "Kakatiya Institute of Technology & Science for Women"}
+                </div>
+                {(config?.college_address || config?.college_phone || config?.college_email) && (
+                  <div className="rp-college-sub">
+                    {config?.college_address && <span>{config.college_address}</span>}
+                    {(config?.college_phone || config?.college_email) && (
+                      <span>
+                        {config?.college_address ? " | " : ""}
+                        {config?.college_phone && `Ph: ${config.college_phone}`}
+                        {config?.college_phone && config?.college_email && " | "}
+                        {config?.college_email && `Email: ${config.college_email}`}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <hr className="rp-divider" />
+
+                {/* ── Title + receipt no ── */}
+                <div className="rp-title-row">
+                  <div className="rp-title">Fee Receipt</div>
+                  <div className="rp-receipt-no">
+                    <div>Receipt No: <strong>{selected.receipt_number}</strong></div>
+                    <div>Date: <strong>{fmtDt(selected.receipt_date)}</strong></div>
+                  </div>
+                </div>
+
+                <hr className="rp-divider-thin" />
+
+                {/* ── Student info ── */}
+                <table className="rp-info-table">
+                  <tbody>
+                    <tr>
+                      <td className="lbl">Student Name</td>
+                      <td className="sep">:</td>
+                      <td className="val"><strong>{selected.students?.student_name}</strong></td>
+                      <td className="lbl" style={{ paddingLeft: "10mm" }}>Roll Number</td>
+                      <td className="sep">:</td>
+                      <td className="val"><strong>{selected.students?.roll_number}</strong></td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Course / Branch</td>
+                      <td className="sep">:</td>
+                      <td className="val">
+                        {selected.students?.courses?.course_name ?? "—"}
+                        {selected.students?.branches?.branch_name ? ` / ${selected.students.branches.branch_name}` : ""}
+                      </td>
+                      <td className="lbl" style={{ paddingLeft: "10mm" }}>Academic Year</td>
+                      <td className="sep">:</td>
+                      <td className="val">{selected.students?.academic_years?.year_name ?? "—"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <hr className="rp-divider-thin" />
+
+                {/* ── Fee table ── */}
+                <table className="rp-fee-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Description / Fee Type</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {txLines.map((t, i) => (
+                      <tr key={i}>
+                        <td>{i + 1}</td>
+                        <td>{t.fee_types?.fee_name ?? "Fee"}</td>
+                        <td>{fmt(t.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="rp-total-row">
+                      <td colSpan={2}>Total Amount Paid</td>
+                      <td>{fmt(selected.total_amount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                {/* ── Amount in words ── */}
+                <div className="rp-words">
+                  Rupees in words: <span>{convertNumberToWords(selected.total_amount)}</span>
+                </div>
+
+                {/* ── Payment mode + ref ── */}
+                <div className="rp-pay-row">
+                  <div>
+                    Mode of Payment:&nbsp;
+                    <span className="rp-pay-badge">{selected.payment_mode}</span>
+                    {selected.transaction_reference && (
+                      <span style={{ marginLeft: 8, fontSize: "9pt" }}>
+                        Ref: <strong>{selected.transaction_reference}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "9pt" }}>
+                    Received by: <strong>{selected.users?.full_name ?? "—"}</strong>
+                  </div>
+                </div>
+
+                {selected.remarks && (
+                  <div style={{ fontSize: "9pt", marginBottom: "3mm", color: "#444" }}>
+                    Remarks: {selected.remarks}
+                  </div>
+                )}
+
+                {/* ── Footer ── */}
+                <div className="rp-footer">
+                  <div className="rp-footer-left">
+                    <div>Generated on: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</div>
+                    <div style={{ marginTop: 4, color: "#888" }}>This is a computer generated receipt.</div>
+                  </div>
+                  <div className="rp-footer-right">
+                    <div className="rp-stamp">Office Seal</div>
+                    <div className="rp-sig-line">
+                      {config?.authorized_signatory_name ?? "Authorized Signatory"}
+                    </div>
+                    <div className="rp-sig-desig">
+                      {config?.authorized_signatory_designation ?? "Accounts Department"}
+                    </div>
+                  </div>
+                </div>
+
+              </div>{/* rp-border */}
+            </div>{/* rp */}
           </div>
         </div>
       )}

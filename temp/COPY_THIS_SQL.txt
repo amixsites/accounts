@@ -1,0 +1,25 @@
+-- COPY EVERYTHING BELOW THIS LINE AND RUN IN SUPABASE SQL EDITOR
+
+INSERT INTO users (id, username, password_hash, full_name, role, email, is_active, created_at, updated_at) 
+VALUES (
+    'cbebf6d8-060a-4055-94f0-471cf62ccc5c',
+    'admin',
+    'admin123',
+    'System Administrator',
+    'Admin',
+    'admin@kitsw.ac.in',
+    true,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (username) 
+DO UPDATE SET 
+    id = 'cbebf6d8-060a-4055-94f0-471cf62ccc5c',
+    password_hash = 'admin123',
+    role = 'Admin',
+    full_name = 'System Administrator',
+    email = 'admin@kitsw.ac.in',
+    is_active = true,
+    updated_at = NOW();
+
+SELECT id, username, password_hash, role, is_active FROM users WHERE username = 'admin';

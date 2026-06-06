@@ -1,22 +1,43 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   dashboard.css
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page wrapper ── */
 .dashboard-container {
   min-height: 100vh;
-  background: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-color, #f8fafc);
+  /* No padding — AppHeader must sit flush at the very top edge */
 }
 
+/* ── Sidebar + content row ── */
 .dashboard-body {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  padding-top: 12px;    /* small gap between the GIF and the body content     */
 }
 
+/* ── Page content area ── */
 .content {
   flex: 1;
-
-  background: var(--card-bg);
-
-  margin: 0 20px 20px 20px;
-
+  min-width: 0;
+  background: var(--card-bg, #fff);
+  margin: 0 16px 16px 0;
   border-radius: 12px;
-
   padding: 20px;
+  box-shadow: var(--shadow-sm, 0 2px 12px rgba(0,0,0,0.08));
+  overflow: auto;
+}
 
-  box-shadow: var(--shadow-sm);
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .dashboard-body {
+    flex-direction: column;
+    padding-top: 8px;
+  }
+  .content {
+    margin: 0 8px 8px;
+  }
 }
