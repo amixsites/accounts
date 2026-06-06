@@ -1,6 +1,6 @@
 # KITSW Fees Management System
 
-A comprehensive fee management system built with React, TypeScript, and Supabase for Kakatiya Institute of Technology & Science for Women.
+A comprehensive fee management system built with React, TypeScript, and Supabase for Kakatiya Institute of Technology & Science Warangal
 
 ## 🚀 Features
 
@@ -63,13 +63,7 @@ start.cmd
 
 Access at `http://localhost:5173`
 
-## 🔐 Default Login Credentials
 
-**⚠️ Change immediately after first login!**
-
-```
-Username: admin
-Password: admin123
 ```
 
 ## 📊 Database Schema
