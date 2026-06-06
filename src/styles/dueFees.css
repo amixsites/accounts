@@ -1,0 +1,615 @@
+/* Due Fees Management Page Stylesheet */
+
+:root {
+  --due-primary: #ee5e1a;
+  --due-primary-hover: #d44d12;
+  --due-primary-light: #ffedd5;
+  --due-secondary: #475569;
+  --due-bg: #f8fafc;
+  --due-card-bg: #ffffff;
+  --due-border: #cbd5e1;
+  --due-border-light: #e2e8f0;
+  --due-text-main: #1e293b;
+  --due-text-muted: #64748b;
+  --due-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --due-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --due-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+}
+
+.due-page {
+  display: flex;
+  flex-direction: column;
+  background: var(--due-bg);
+  padding: 10px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.due-header {
+  margin-bottom: 20px;
+}
+
+.due-header h2 {
+  font-size: 24px;
+  color: var(--due-primary);
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.due-header p {
+  color: var(--due-text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Filters Panel - Sticky at top */
+.filters-panel {
+  position: sticky;
+  top: 0;
+  background: var(--due-card-bg);
+  border: 1px solid var(--due-border-light);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--due-shadow-sm);
+  margin-bottom: 20px;
+  z-index: 10;
+  transition: box-shadow 0.3s ease;
+}
+
+.filters-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--due-text-main);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--due-primary-light);
+  padding-bottom: 6px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group.span-2 {
+  grid-column: span 2;
+}
+
+.filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--due-text-muted);
+}
+
+.filter-select, .filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1.5px solid var(--due-border-light);
+  border-radius: 6px;
+  outline: none;
+  background-color: white;
+  color: var(--due-text-main);
+  transition: border-color 0.2s ease;
+  height: 36px;
+}
+
+.filter-select:focus, .filter-input:focus {
+  border-color: var(--due-primary);
+}
+
+.range-inputs-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-input-divider {
+  color: var(--due-text-muted);
+  font-size: 12px;
+}
+
+/* Search Bar below filters */
+.search-bar-section {
+  position: relative;
+  background: var(--due-card-bg);
+  border: 1px solid var(--due-border-light);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: var(--due-shadow-sm);
+  margin-bottom: 20px;
+}
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--due-text-muted);
+  pointer-events: none;
+}
+
+.search-field {
+  width: 100%;
+  padding: 10px 12px 10px 38px;
+  font-size: 14px;
+  border: 1.5px solid var(--due-border-light);
+  border-radius: 6px;
+  outline: none;
+  color: var(--due-text-main);
+  transition: all 0.2s ease;
+}
+
+.search-field:focus {
+  border-color: var(--due-primary);
+  box-shadow: 0 0 0 3px rgba(238, 94, 26, 0.08);
+}
+
+.search-suggestions-overlay {
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  right: 20px;
+  background: white;
+  border: 1px solid var(--due-border-light);
+  border-radius: 8px;
+  box-shadow: var(--due-shadow-lg);
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+  list-style: none;
+  padding: 0;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-suggestion-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--due-border-light);
+  transition: background 0.12s ease;
+}
+
+.search-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.search-suggestion-item:hover {
+  background: var(--due-primary-light);
+}
+
+.search-suggestion-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-suggestion-name {
+  font-weight: 600;
+  color: var(--due-text-main);
+  font-size: 13px;
+}
+
+.search-suggestion-roll {
+  font-size: 11px;
+  color: var(--due-text-muted);
+}
+
+.search-suggestion-year {
+  font-size: 11px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: var(--due-secondary);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+/* Two Column Layout */
+.due-main-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Left Column - Student Cards */
+.results-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 700px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.results-column::-webkit-scrollbar {
+  width: 6px;
+}
+.results-column::-webkit-scrollbar-track {
+  background: transparent;
+}
+.results-column::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.student-due-card {
+  background: var(--due-card-bg);
+  border: 1.5px solid var(--due-border-light);
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--due-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.student-due-card:hover {
+  border-color: #fdba74;
+  transform: translateY(-1px);
+  box-shadow: var(--due-shadow-md);
+}
+
+.student-due-card.active {
+  border-color: var(--due-primary);
+  background-color: #fffaf7;
+  box-shadow: 0 0 0 3px rgba(238, 94, 26, 0.1);
+}
+
+.student-due-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--due-text-main);
+  margin: 0;
+}
+
+.student-due-roll {
+  font-size: 12px;
+  color: var(--due-text-muted);
+}
+
+.student-due-meta {
+  font-size: 11px;
+  color: var(--due-text-muted);
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+.student-due-status-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--due-border-light);
+}
+
+.student-due-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+/* Right Column - Dues details table */
+.details-column {
+  background: var(--due-card-bg);
+  border: 1px solid var(--due-border-light);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--due-shadow-sm);
+  min-height: 360px;
+}
+
+.details-column-header {
+  border-bottom: 2px solid var(--due-primary-light);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.details-column-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--due-text-main);
+  margin: 0 0 4px 0;
+}
+
+.details-column-header p {
+  font-size: 13px;
+  color: var(--due-text-muted);
+  margin: 0;
+}
+
+.due-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--due-border-light);
+  border-radius: 8px;
+}
+
+.due-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.due-details-table th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--due-text-muted);
+  border-bottom: 1.5px solid var(--due-border-light);
+}
+
+.due-details-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--due-border-light);
+  color: var(--due-text-main);
+}
+
+.due-details-table tr:last-child td {
+  border-bottom: none;
+}
+
+.due-details-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.due-details-table tbody tr:hover {
+  background: #fafafb;
+}
+
+/* Empty states */
+.empty-state-card {
+  padding: 40px;
+  text-align: center;
+  color: var(--due-text-muted);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1.5px dashed var(--due-border-light);
+  border-radius: 10px;
+  background: white;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-pending {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-partial {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+/* Voucher modal view details */
+.voucher-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.voucher-modal {
+  background: white;
+  border-radius: 16px;
+  width: min(700px, 95vw);
+  max-height: 90vh;
+  box-shadow: var(--due-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.voucher-modal-header {
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--due-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voucher-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--due-text-main);
+  margin: 0;
+}
+
+.voucher-close-btn {
+  background: none;
+  border: none;
+  color: var(--due-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.voucher-close-btn:hover {
+  background: #e2e8f0;
+  color: var(--due-text-main);
+}
+
+.voucher-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.voucher-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--due-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid var(--due-primary-light);
+  padding-bottom: 4px;
+}
+
+.voucher-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 24px;
+}
+
+.voucher-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voucher-cell-full {
+  grid-column: span 2;
+}
+
+.voucher-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--due-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.voucher-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--due-text-main);
+}
+
+.voucher-value-bold {
+  font-weight: 700;
+}
+
+/* Conditional details card */
+.conditional-card {
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.conditional-card-partial {
+  background: #fffaf5;
+  border: 1px dashed #fdba74;
+}
+
+.conditional-card-pending {
+  background: #fefefe;
+  border: 1px dashed var(--due-border);
+}
+
+.voucher-table-wrapper {
+  border: 1px solid var(--due-border-light);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.voucher-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.voucher-table th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--due-text-muted);
+  border-bottom: 1px solid var(--due-border-light);
+  text-align: left;
+}
+
+.voucher-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--due-border-light);
+  color: var(--due-text-main);
+}
+
+.voucher-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Sticky Filters scroll positioning */
+@media (max-width: 1024px) {
+  .filters-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .due-main-layout {
+    grid-template-columns: 1fr;
+  }
+  .results-column {
+    max-height: 350px;
+  }
+}
+
+@media (max-width: 600px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+  .voucher-grid {
+    grid-template-columns: 1fr;
+  }
+  .voucher-cell-full {
+    grid-column: span 1;
+  }
+}
