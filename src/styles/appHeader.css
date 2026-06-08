@@ -1,56 +1,76 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   appHeader.css — full-width branding banner
-   No user info here. User profile lives in sidebar footer.
-───────────────────────────────────────────────────────────────────────────── */
+﻿/* ─────────────────────────────────────────────────────────────────────────────
+   appHeader.css — site header for Kakatiya Institute of Technology and Science, Warangal
+──────────────────────────────────────────────────────────────────────────────── */
 
-/* ── Root: edge-to-edge, no padding, no margin ── */
 .app-header-root {
-  /* Stretch across the full viewport width */
   width: 100%;
   display: block;
-  flex-shrink: 0;       /* never compress in a flex column (dashboard layout) */
-  line-height: 0;       /* remove any inline gap below the img element        */
-  overflow: hidden;     /* clip any sub-pixel overflow                        */
-  /* No background colour — GIF itself provides the visual top strip          */
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #fef2e9 0%, #fff7ed 100%);
+  border-bottom: 1px solid rgba(249, 115, 22, 0.16);
 }
 
-/* ── GIF image ── */
-.app-header-gif {
-  /* Fill every pixel of the container horizontally */
-  display: block;       /* removes the default inline bottom gap              */
-  width: 100%;
-  height: auto;         /* browser computes height from intrinsic ratio       */
-
-  /*
-    object-fit: fill  → stretches to fill the box, useful if the GIF is
-    designed as a banner that should span edge-to-edge.
-    Switch to "contain" if you need letterboxing instead of fill.
-  */
-  object-fit: fill;
-
-  /*
-    aspect-ratio keeps space reserved while the GIF loads so there
-    is no layout shift. Update the ratio if the actual GIF differs.
-    1200/120 = 10/1  (adjust if your GIF has a different proportion)
-  */
-  aspect-ratio: 1200 / 120;
-
-  /* Crisp rendering — prevents blurry upscaling on retina displays */
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+.app-header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Dark-mode: keep the wrapper transparent so GIF background shows through
-───────────────────────────────────────────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  .app-header-root { background: transparent; }
+.app-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
-html.dark .app-header-root { background: transparent; }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Print: hide the GIF — receipts have their own college header
-───────────────────────────────────────────────────────────────────────────── */
+.app-header-logo {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #f97316;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+
+.app-header-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.app-header-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.app-header-tagline {
+  font-size: 0.95rem;
+  color: #1f2937;
+  opacity: 0.88;
+  white-space: nowrap;
+}
+
+@media (max-width: 780px) {
+  .app-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-header-tagline {
+    white-space: normal;
+    max-width: 100%;
+  }
+}
+
 @media print {
   .app-header-root { display: none; }
 }

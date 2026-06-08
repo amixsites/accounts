@@ -1,21 +1,24 @@
 /**
- * AppHeader — full-width header.gif banner. Branding only, no user info.
- * User profile + logout live in the Sidebar footer instead.
+ * AppHeader — site header for Kakatiya Institute of Technology and Science, Warangal.
+ * Displays institute branding and section title without using a GIF.
  */
 import "../styles/appHeader.css";
 
 export default function AppHeader() {
   return (
-    <div className="app-header-root">
-      <img
-        src="/header.gif"
-        alt="Kakatiya Institute of Technology & Science for Women — Accounts Section"
-        className="app-header-gif"
-        /* Intrinsic size hints prevent layout shift while GIF loads */
-        width="1200"
-        height="120"
-        draggable={false}
-      />
-    </div>
+    <header className="app-header-root">
+      <div className="app-header-inner">
+        <div className="app-header-brand">
+          <span className="app-header-logo">KITSW</span>
+          <div>
+            <p className="app-header-title">Kakatiya Institute of Technology and Science</p>
+            <p className="app-header-subtitle">Warangal — Accounts Section</p>
+          </div>
+        </div>
+        <div className="app-header-tagline">
+          <span>Modern financial operations for academic administration</span>
+        </div>
+      </div>
+    </header>
   );
 }
