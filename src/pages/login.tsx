@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, ShieldCheck, BarChart3, Users } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import bcrypt from "bcryptjs";
-import AppHeader from "../components/AppHeader";
 import "../styles/login.css";
 
 export default function Login() {
-  const [username, setUsername]       = useState("");
-  const [password, setPassword]       = useState("");
+  const [username,     setUsername]     = useState("");
+  const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError]             = useState("");
-  const [loading, setLoading]         = useState(false);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -19,12 +18,11 @@ export default function Login() {
     setError("");
 
     if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password");
+      setError("Please enter both username and password.");
       return;
     }
 
     setLoading(true);
-
     try {
       const { data, error: fetchError } = await supabase
         .from("users")
@@ -34,23 +32,19 @@ export default function Login() {
         .single();
 
       if (fetchError || !data) {
-        setError("Invalid username or password");
+        setError("Invalid username or password.");
         setLoading(false);
         return;
       }
 
-      // Accept plain-text or bcrypt-hashed passwords
       let isPasswordValid = data.password_hash === password;
       if (!isPasswordValid) {
-        try {
-          isPasswordValid = await bcrypt.compare(password, data.password_hash);
-        } catch {
-          isPasswordValid = false;
-        }
+        try { isPasswordValid = await bcrypt.compare(password, data.password_hash); }
+        catch { isPasswordValid = false; }
       }
 
       if (!isPasswordValid) {
-        setError("Invalid username or password");
+        setError("Invalid username or password.");
         setLoading(false);
         return;
       }
@@ -66,45 +60,112 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err) {
       console.error("Login error:", err);
-      setError("An error occurred during login. Please try again.");
+      setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      {/* ── GIF banner (no user strip on login) ── */}
-      <AppHeader />
+    <div className="lp-root">
 
-      {/* ── Login form centred below the banner ── */}
-      <div className="login-body">
-        <div className="login-card">
-          <h2 className="login-title">Sign in to continue</h2>
+      {/* ════════════════════════════════════════════
+          LEFT PANEL — branding + banner image
+      ════════════════════════════════════════════ */}
+      <div className="lp-left">
+        {/* Overlay gradient so text is readable */}
+        <div className="lp-left-overlay" />
 
+        {/* Banner photo fills the panel */}
+        <img src="/banner3.jpg" alt="KITSW Campus" className="lp-banner-img" draggable={false} />
+
+        {/* Content sits on top of the image */}
+        <div className="lp-left-content">
+          {/* Logo mark */}
+          <div className="lp-logo-mark">
+            <GraduationCap size={32} strokeWidth={1.8} />
+          </div>
+
+          <h1 className="lp-college-name">
+            Kakatiya Institute of Technology &amp; Science 
+          </h1>
+          <p className="lp-college-sub">Warangal, Telangana </p>
+
+          <div className="lp-divider" />
+
+          <p className="lp-module-name"></p>
+          <p className="lp-module-desc">
+            Centralised platform for fee collection, receipts, due tracking,
+            and financial reporting across all departments.
+          </p>
+
+          {/* Feature pills */}
+          <div className="lp-features">
+            {[
+              { icon: <BarChart3 size={14} />, label: "Real-time Reports" },
+              { icon: <ShieldCheck size={14} />, label: "Role-based Access" },
+              { icon: <Users size={14} />,      label: "Multi-user Support" },
+            ].map(({ icon, label }) => (
+              <span key={label} className="lp-feature-pill">
+                {icon}
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════
+          RIGHT PANEL — login form
+      ════════════════════════════════════════════ */}
+      <div className="lp-right">
+        <div className="lp-form-wrap">
+
+          {/* Header */}
+          <div className="lp-form-header">
+            <div className="lp-form-icon">
+              <ShieldCheck size={22} strokeWidth={1.8} />
+            </div>
+            <h2 className="lp-form-title">Welcome back</h2>
+            <p className="lp-form-sub">Sign in to your account to continue</p>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="login-error">{error}</div>
+            <div className="lp-error" role="alert">
+              <span className="lp-error-dot" />
+              {error}
+            </div>
           )}
 
-          <form onSubmit={handleLogin} noValidate>
-            <div className="form-group">
-              <label htmlFor="username">Username</label>
+          {/* Form */}
+          <form onSubmit={handleLogin} noValidate className="lp-form">
+            <div className="lp-field">
+              <label htmlFor="lp-username" className="lp-label">Username</label>
               <input
-                id="username"
+                id="lp-username"
                 type="text"
+                className="lp-input"
+                placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
+                autoFocus
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <div className="password-field">
+            <div className="lp-field">
+              <div className="lp-label-row">
+                <label htmlFor="lp-password" className="lp-label">Password</label>
+                <a href="#" className="lp-forgot">Forgot password?</a>
+              </div>
+              <div className="lp-password-wrap">
                 <input
-                  id="password"
+                  id="lp-password"
                   type={showPassword ? "text" : "password"}
+                  className="lp-input"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -112,21 +173,29 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  className="toggle-password"
-                  onClick={() => setShowPassword((p) => !p)}
+                  className="lp-eye-btn"
+                  onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
-            <a href="#" className="forgot-password">Forgot Password?</a>
-
-            <button type="submit" className="login-btn" disabled={loading}>
-              {loading ? "Signing in…" : "Login"}
+            <button type="submit" className="lp-submit" disabled={loading}>
+              {loading ? (
+                <span className="lp-spinner" />
+              ) : (
+                "Sign In"
+              )}
             </button>
           </form>
+
+          {/* Footer */}
+          <p className="lp-footer-note">
+            © {new Date().getFullYear()} KITSW — Accounts Department. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
