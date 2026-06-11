@@ -96,6 +96,42 @@ export default function Students() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
 
+  // Selected Student Details States
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudentDues, setSelectedStudentDues] = useState<any | null>(null);
+  const [selectedStudentTransactions, setSelectedStudentTransactions] = useState<any[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const fetchStudentDetails = async (studentId: number) => {
+    setLoadingDetails(true);
+    // Fetch Dues Summary
+    const { data: duesData } = await supabase
+      .from('due_fees_view')
+      .select('*')
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    setSelectedStudentDues(duesData || {
+      total_fee_amount: 0,
+      amount_paid: 0,
+      due_amount: 0
+    });
+
+    // Fetch Transactions History
+    const { data: txData } = await supabase
+      .from('transactions')
+      .select(`
+        id, amount, transaction_date,
+        fee_types ( fee_name ),
+        receipts ( payment_mode, receipt_number )
+      `)
+      .eq('student_id', studentId)
+      .order('transaction_date', { ascending: false });
+
+    setSelectedStudentTransactions(txData || []);
+    setLoadingDetails(false);
+  };
+
   // ── Toast helpers ────────────────────────────────────────────────────────
   const addToast = useCallback((message: string, type: Toast["type"] = "success") => {
     const id = ++toastIdRef.current;
@@ -462,58 +498,161 @@ export default function Students() {
         </select>
       </div>
 
-      {/* ── Table ── */}
-      <div className="sm-table-wrap">
-        {loading ? (
-          <div className="sm-empty">
-            <div className="sm-spinner" />
-            <p>Loading students…</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="sm-empty">
-            <p>No students found{search || branchFilter ? " matching your filters" : ""}.</p>
-            {!search && !branchFilter && (
-              <button className="sm-btn sm-btn-primary" style={{ marginTop: 12 }} onClick={openAddStudentModal}>
-                Add your first student
-              </button>
+      {/* ── Two-pane Layout ── */}
+      <div className="sm-layout">
+        {/* Left pane: Students List */}
+        <div className="sm-list-pane">
+          <div className="sm-table-wrap">
+            {loading ? (
+              <div className="sm-empty">
+                <div className="sm-spinner" />
+                <p>Loading students…</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="sm-empty">
+                <p>No students found{search || branchFilter ? " matching your filters" : ""}.</p>
+                {!search && !branchFilter && (
+                  <button className="sm-btn sm-btn-primary" style={{ marginTop: 12 }} onClick={openAddStudentModal}>
+                    Add your first student
+                  </button>
+                )}
+              </div>
+            ) : (
+              <table className="sm-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Roll Number</th>
+                    <th>Academic Year</th>
+                    <th>Branch</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => {
+                        setSelectedStudent(s);
+                        fetchStudentDetails(s.id);
+                      }}
+                      className={selectedStudent?.id === s.id ? "sm-row-active" : ""}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td>
+                        <div className="sm-student-name">
+                          <div className="sm-avatar">{s.student_name.charAt(0).toUpperCase()}</div>
+                          {s.student_name}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="sm-badge">{s.roll_number}</span>
+                      </td>
+                      <td>{s.academic_years?.year_name ?? "—"}</td>
+                      <td>
+                        {s.branches ? (
+                          <span className="sm-branch-tag">
+                            {s.branches.branch_code}
+                          </span>
+                        ) : "—"}
+                      </td>
+                      <td className="sm-date">{fmtDate(s.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
-        ) : (
-          <table className="sm-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Roll Number</th>
-                <th>Academic Year</th>
-                <th>Branch</th>
-                <th>Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <div className="sm-student-name">
-                      <div className="sm-avatar">{s.student_name.charAt(0).toUpperCase()}</div>
-                      {s.student_name}
+        </div>
+
+        {/* Right pane: Student Info Box */}
+        {selectedStudent && (
+          <div className="sm-detail-pane">
+            <div className="sm-detail-header">
+              <h3>Student Details</h3>
+              <button className="sm-detail-close" onClick={() => setSelectedStudent(null)}>×</button>
+            </div>
+            
+            <div className="sm-detail-body">
+              {/* Student basic info card */}
+              <div className="sm-student-profile">
+                <div className="sm-avatar-large">
+                  {selectedStudent.student_name.charAt(0).toUpperCase()}
+                </div>
+                <div className="sm-profile-meta">
+                  <h4>{selectedStudent.student_name}</h4>
+                  <span className="sm-badge-large">{selectedStudent.roll_number}</span>
+                </div>
+              </div>
+
+              <div className="sm-profile-grid">
+                <div className="sm-profile-cell">
+                  <span className="sm-profile-lbl">Branch</span>
+                  <span className="sm-profile-val">
+                    {selectedStudent.branches ? `${selectedStudent.branches.branch_code} - ${selectedStudent.branches.branch_name}` : "—"}
+                  </span>
+                </div>
+                <div className="sm-profile-cell">
+                  <span className="sm-profile-lbl">Academic Year</span>
+                  <span className="sm-profile-val">
+                    {selectedStudent.academic_years?.year_name ?? "—"}
+                  </span>
+                </div>
+                <div className="sm-profile-cell">
+                  <span className="sm-profile-lbl">Admission Date</span>
+                  <span className="sm-profile-val">
+                    {fmtDate(selectedStudent.created_at)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Dues summary */}
+              <h5 className="sm-detail-section-title">Fee Summary</h5>
+              {loadingDetails ? (
+                <div className="sm-detail-loading">Loading dues info...</div>
+              ) : selectedStudentDues ? (
+                <div className="sm-due-card">
+                  <div className="sm-due-row">
+                    <span className="sm-due-lbl">Total Fee</span>
+                    <span className="sm-due-val">₹{selectedStudentDues.total_fee_amount?.toLocaleString("en-IN") || 0}</span>
+                  </div>
+                  <div className="sm-due-row">
+                    <span className="sm-due-lbl" style={{ color: "#16a34a" }}>Amount Paid</span>
+                    <span className="sm-due-val" style={{ color: "#16a34a" }}>₹{selectedStudentDues.amount_paid?.toLocaleString("en-IN") || 0}</span>
+                  </div>
+                  <div className="sm-due-row sm-due-total">
+                    <span className="sm-due-lbl" style={{ fontWeight: 700 }}>Remaining Due</span>
+                    <span className="sm-due-val" style={{ color: "#dc2626", fontWeight: 700 }}>₹{selectedStudentDues.due_amount?.toLocaleString("en-IN") || 0}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="sm-detail-loading">No fee info available.</div>
+              )}
+
+              {/* Transactions list */}
+              <h5 className="sm-detail-section-title">Recent Transactions</h5>
+              {loadingDetails ? (
+                <div className="sm-detail-loading">Loading transactions...</div>
+              ) : selectedStudentTransactions.length === 0 ? (
+                <div className="sm-detail-empty">No payments made yet.</div>
+              ) : (
+                <div className="sm-detail-tx-list">
+                  {selectedStudentTransactions.map((tx) => (
+                    <div key={tx.id} className="sm-detail-tx-item">
+                      <div className="sm-tx-header">
+                        <span className="sm-tx-receipt">{tx.receipts?.receipt_number || "No Receipt"}</span>
+                        <span className="sm-tx-amount">₹{tx.amount.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="sm-tx-footer">
+                        <span className="sm-tx-type">{tx.fee_types?.fee_name}</span>
+                        <span className="sm-tx-date">{new Date(tx.transaction_date).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                  </td>
-                  <td>
-                    <span className="sm-badge">{s.roll_number}</span>
-                  </td>
-                  <td>{s.academic_years?.year_name ?? "—"}</td>
-                  <td>
-                    {s.branches ? (
-                      <span className="sm-branch-tag">
-                        {s.branches.branch_code}
-                      </span>
-                    ) : "—"}
-                  </td>
-                  <td className="sm-date">{fmtDate(s.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

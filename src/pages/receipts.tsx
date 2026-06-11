@@ -38,6 +38,8 @@ const fmtDt = (iso: string) =>
 export default function Receipts() {
   const [receipts,    setReceipts]    = useState<Receipt[]>([]);
   const [query,       setQuery]       = useState("");
+  const [startDate,   setStartDate]   = useState("");
+  const [endDate,     setEndDate]     = useState("");
   const [selected,    setSelected]    = useState<Receipt | null>(null);
   const [txLines,     setTxLines]     = useState<TxLine[]>([]);
   const [config,      setConfig]      = useState<ReceiptConfig | null>(null);
@@ -321,11 +323,30 @@ ${printRef.current.innerHTML}
   // ── Filtered receipts ──────────────────────────────────────────────────────
   const filtered = receipts.filter((r) => {
     const q = query.toLowerCase();
-    return (
+    const matchesQuery = (
       r.receipt_number.toLowerCase().includes(q) ||
       (r.students?.student_name ?? "").toLowerCase().includes(q) ||
       (r.students?.roll_number ?? "").toLowerCase().includes(q)
     );
+
+    let matchesDate = true;
+    if (r.receipt_date) {
+      const txDate = new Date(r.receipt_date);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (txDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (txDate > end) matchesDate = false;
+      }
+    } else if (startDate || endDate) {
+      matchesDate = false;
+    }
+
+    return matchesQuery && matchesDate;
   });
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -338,21 +359,47 @@ ${printRef.current.innerHTML}
         <p>Search, view and reprint fee receipts</p>
       </div>
 
-      {/* ── Search bar ── */}
-      <div className="rcp-search-bar">
-        <Search size={18} className="rcp-search-icon" />
-        <input
-          type="text"
-          className="rcp-search-input"
-          placeholder="Search by receipt number, student name or roll number…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button className="rcp-search-clear" onClick={() => setQuery("")}>
-            <X size={16} />
-          </button>
-        )}
+      {/* ── Search bar + Date Filters ── */}
+      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
+        <div className="rcp-search-bar" style={{ marginBottom: 0, flex: "1 1 300px" }}>
+          <Search size={18} className="rcp-search-icon" />
+          <input
+            type="text"
+            className="rcp-search-input"
+            placeholder="Search by receipt number, student name or roll number…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button className="rcp-search-clear" onClick={() => setQuery("")}>
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <div className="rcp-date-filters" style={{ display: "flex", alignItems: "center", gap: "8px", background: "white", padding: "0 12px", borderRadius: "9px", border: "1.5px solid #fdba74", flexShrink: 0 }}>
+          <label style={{ fontSize: "13px", fontWeight: "600", color: "#ea580c" }}>From:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={{ border: "none", outline: "none", padding: "10px 0", fontSize: "14px", color: "#1e293b", background: "transparent" }}
+          />
+          <label style={{ fontSize: "13px", fontWeight: "600", color: "#ea580c", marginLeft: "8px" }}>To:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{ border: "none", outline: "none", padding: "10px 0", fontSize: "14px", color: "#1e293b", background: "transparent" }}
+          />
+          {(startDate || endDate) && (
+            <button
+              onClick={() => { setStartDate(""); setEndDate(""); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", padding: "4px", display: "flex", alignItems: "center", borderRadius: "4px" }}
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Two-pane layout ── */}

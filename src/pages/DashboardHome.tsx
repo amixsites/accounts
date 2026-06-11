@@ -15,6 +15,7 @@ interface RecentTransaction {
   id: number;
   receipt_number: string;
   student_name: string;
+  roll_number: string;
   amount: number;
   payment_mode: string;
   receipt_date: string;
@@ -40,19 +41,18 @@ export default function DashboardHome() {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      // Fetch today's receipts
-      const { data: receipts, error: receiptsError } = await supabase
+      // Fetch today's receipts for stats
+      const { data: todayReceipts, error: receiptsError } = await supabase
         .from('receipts')
-        .select('*, students(student_name)')
-        .eq('receipt_date', today)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('receipt_date', today);
 
       if (receiptsError) throw receiptsError;
 
       // Calculate stats
-      const cash = receipts?.filter(r => r.payment_mode === 'Cash').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
-      const upi = receipts?.filter(r => r.payment_mode === 'UPI').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
-      const bank = receipts?.filter(r => r.payment_mode === 'Bank Transfer').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
+      const cash = todayReceipts?.filter(r => r.payment_mode === 'Cash').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
+      const upi = todayReceipts?.filter(r => r.payment_mode === 'UPI').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
+      const bank = todayReceipts?.filter(r => r.payment_mode === 'Bank Transfer').reduce((sum, r) => sum + Number(r.total_amount), 0) || 0;
       const total = cash + upi + bank;
 
       // Fetch due fees count
@@ -67,15 +67,26 @@ export default function DashboardHome() {
         cashCollection: cash,
         upiCollection: upi,
         bankTransferCollection: bank,
-        receiptsGenerated: receipts?.length || 0,
+        receiptsGenerated: todayReceipts?.length || 0,
         pendingFeeCount: dueFeesData?.length || 0,
       });
 
+      // Fetch recent transactions globally (not limited to today)
+      const { data: recentReceipts, error: recentError } = await supabase
+        .from('receipts')
+        .select('*, students(student_name, roll_number)')
+        .order('receipt_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (recentError) throw recentError;
+
       // Format recent transactions
-      const recentTx = receipts?.slice(0, 10).map(r => ({
+      const recentTx = recentReceipts?.map(r => ({
         id: r.id,
         receipt_number: r.receipt_number,
         student_name: r.students?.student_name || 'Unknown',
+        roll_number: r.students?.roll_number || '—',
         amount: Number(r.total_amount),
         payment_mode: r.payment_mode,
         receipt_date: r.receipt_date,
@@ -157,14 +168,14 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Recent Fees Paid */}
       <div style={{ background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
         <h2 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <TrendingUp size={24} color="#ea580c" />
-          Recent Transactions
+          Recent Fees Paid
         </h2>
         {recentTransactions.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No transactions today</p>
+          <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>No payments made yet</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -172,6 +183,7 @@ export default function DashboardHome() {
                 <tr style={{ borderBottom: '2px solid #ea580c' }}>
                   <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Receipt No.</th>
                   <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Student Name</th>
+                  <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Roll Number</th>
                   <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Amount</th>
                   <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Payment Mode</th>
                   <th style={{ padding: '12px', textAlign: 'left', color: '#ea580c' }}>Date</th>
@@ -180,9 +192,22 @@ export default function DashboardHome() {
               <tbody>
                 {recentTransactions.map((tx, idx) => (
                   <tr key={tx.id} style={{ borderBottom: '1px solid #eee', background: idx % 2 === 0 ? '#fafafa' : 'white' }}>
-                    <td style={{ padding: '12px' }}>{tx.receipt_number}</td>
+                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#ea580c' }}>{tx.receipt_number}</td>
                     <td style={{ padding: '12px' }}>{tx.student_name}</td>
-                    <td style={{ padding: '12px', fontWeight: 'bold' }}>{formatCurrency(tx.amount)}</td>
+                    <td style={{ padding: '12px' }}>
+                      <span style={{ 
+                        padding: '3px 10px', 
+                        borderRadius: '20px', 
+                        fontSize: '12px',
+                        background: '#ffedd5',
+                        color: '#c2410c',
+                        fontWeight: '600',
+                        fontFamily: 'monospace'
+                      }}>
+                        {tx.roll_number}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 'bold', color: '#16a34a' }}>{formatCurrency(tx.amount)}</td>
                     <td style={{ padding: '12px' }}>
                       <span style={{ 
                         padding: '4px 12px', 

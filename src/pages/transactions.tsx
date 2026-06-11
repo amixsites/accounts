@@ -15,6 +15,8 @@ interface Transaction {
 
 export default function Transactions() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,13 +47,31 @@ export default function Transactions() {
 
   const filteredTransactions = allTransactions.filter(tx => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
+    const matchesSearch = !q || (
       tx.receipts?.receipt_number.toLowerCase().includes(q) ||
       tx.students?.roll_number.toLowerCase().includes(q) ||
       tx.students?.student_name.toLowerCase().includes(q) ||
       tx.fee_types?.fee_name.toLowerCase().includes(q)
     );
+
+    let matchesDate = true;
+    if (tx.transaction_date) {
+      const txDate = new Date(tx.transaction_date);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (txDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (txDate > end) matchesDate = false;
+      }
+    } else if (startDate || endDate) {
+      matchesDate = false;
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   return (
@@ -61,8 +81,8 @@ export default function Transactions() {
         <p>Audit trail of all student payments and receipts</p>
       </div>
 
-      <div className="search-section" style={{marginBottom: "20px"}}>
-        <div className="search-input-wrapper" style={{display: "flex", alignItems: "center", background: "white", padding: "10px", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)"}}>
+      <div className="search-section" style={{marginBottom: "20px", display: "flex", gap: "12px", flexWrap: "wrap"}}>
+        <div className="search-input-wrapper" style={{display: "flex", alignItems: "center", background: "white", padding: "10px", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", flex: "1 1 300px"}}>
           <Search size={18} style={{marginRight: "10px", color: "#64748b"}} />
           <input
             type="text"
@@ -71,6 +91,32 @@ export default function Transactions() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{border: "none", outline: "none", width: "100%", fontSize: "16px"}}
           />
+        </div>
+        <div className="date-filters-wrapper" style={{display: "flex", alignItems: "center", gap: "8px", background: "white", padding: "10px", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)"}}>
+          <label style={{fontSize: "14px", fontWeight: "600", color: "#64748b"}}>From:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={{border: "1px solid #cbd5e1", borderRadius: "4px", padding: "4px 8px", fontSize: "14px", outline: "none", color: "#1e293b"}}
+          />
+          <label style={{fontSize: "14px", fontWeight: "600", color: "#64748b"}}>To:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{border: "1px solid #cbd5e1", borderRadius: "4px", padding: "4px 8px", fontSize: "14px", outline: "none", color: "#1e293b"}}
+          />
+          {(startDate || endDate) && (
+            <button
+              onClick={() => { setStartDate(""); setEndDate(""); }}
+              style={{background: "#fee2e2", border: "none", borderRadius: "4px", padding: "6px 12px", fontSize: "12px", fontWeight: "600", color: "#dc2626", cursor: "pointer", transition: "background 0.15s"}}
+              onMouseOver={(e) => e.currentTarget.style.background = "#fca5a5"}
+              onMouseOut={(e) => e.currentTarget.style.background = "#fee2e2"}
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
